@@ -1,7 +1,15 @@
+using System.Text.Json;
 using Ofel.Security.Server.Endpoints;
 using Ofel.Security.Server.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Accept snake_case JSON (machine_id → MachineId, etc.) from clients.
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.PropertyNamingPolicy        = JsonNamingPolicy.SnakeCaseLower;
+    options.SerializerOptions.PropertyNameCaseInsensitive = true;
+});
 
 builder.Services.AddSingleton<SecurityConfig>();
 builder.Services.AddSingleton<RateLimiterService>();
