@@ -24,6 +24,7 @@ public class EmailAlertService
             {
                 EnableSsl   = true,
                 Credentials = new NetworkCredential(_config.SmtpUser, _config.SmtpPassword),
+                Timeout     = 5_000,   // 5 s — never block the request thread
             };
 #pragma warning restore SYSLIB0021
             var msg = new MailMessage(_config.SmtpUser, _config.AlertEmail, subject, body);

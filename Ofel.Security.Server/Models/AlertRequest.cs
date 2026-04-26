@@ -1,8 +1,10 @@
+using System.Text.Json.Serialization;
+
 namespace Ofel.Security.Server.Models;
 
 public record AlertRequest(
-    string  MachineId,
-    string  Type,
-    string  Version,
-    long    Timestamp,
-    string? Details = null);
+    [property: JsonPropertyName("machine_id")] string  MachineId,
+    [property: JsonPropertyName("type")]       string  Type,
+    [property: JsonPropertyName("version")]    string  Version,
+    [property: JsonPropertyName("timestamp")]  long    Timestamp,
+    [property: JsonPropertyName("details")]    string? Details = null);

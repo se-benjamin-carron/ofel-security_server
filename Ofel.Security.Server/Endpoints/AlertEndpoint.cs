@@ -24,10 +24,11 @@ public static class AlertEndpoint
                 $"Timestamp  : {DateTimeOffset.FromUnixTimeMilliseconds(req.Timestamp):O}\n" +
                 $"Details    : {req.Details ?? "none"}\n";
 
-            email.Send(subject, body);
-
-            // Auto-blacklist the offending machine.
+            // Auto-blacklist immediately (synchronous, in-memory + file).
             blacklist.Add(req.MachineId, req.Type);
+
+            // Email is fire-and-forget — never block the response on SMTP.
+            _ = Task.Run(() => email.Send(subject, body));
 
             return Results.Ok(new { received = true });
         });
