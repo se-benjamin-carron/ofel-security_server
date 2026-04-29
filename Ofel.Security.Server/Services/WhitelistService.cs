@@ -18,10 +18,10 @@ public class WhitelistService
 
     public bool IsWhitelisted(string machineId) => _cache.ContainsKey(machineId);
 
-    public void Add(string machineId, string reason)
+    public bool Add(string machineId, string reason)
     {
         var addedDate = DateTime.UtcNow.ToString("yyyy-MM-dd");
-        if (!_cache.TryAdd(machineId, (reason, addedDate))) return;
+        if (!_cache.TryAdd(machineId, (reason, addedDate))) return false;
 
         try
         {
@@ -37,6 +37,8 @@ public class WhitelistService
         {
             Console.WriteLine($"[Whitelist] Failed to persist {machineId}: {ex.Message}");
         }
+
+        return true;
     }
 
     public bool Remove(string machineId)
@@ -55,6 +57,8 @@ public class WhitelistService
 
         return true;
     }
+
+    public int Count => _cache.Count;
 
     public IEnumerable<object> GetAll() =>
         _cache.Select(kv => (object)new WhitelistEntry(kv.Key, kv.Value.AddedDate, kv.Value.Reason));

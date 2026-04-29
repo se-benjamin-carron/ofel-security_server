@@ -11,6 +11,19 @@ builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.PropertyNameCaseInsensitive = true;
 });
 
+// CORS — allow the local admin UI to call /admin/* endpoints.
+var corsOrigins = (builder.Configuration["OFEL_ADMIN_CORS_ORIGINS"]
+    ?? "http://localhost:5173,http://127.0.0.1:5173")
+    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AdminCors", policy =>
+        policy.WithOrigins(corsOrigins)
+              .WithHeaders("X-Admin-Key", "Content-Type")
+              .WithMethods("GET", "POST", "DELETE", "OPTIONS"));
+});
+
 builder.Services.AddSingleton<SecurityConfig>();
 builder.Services.AddSingleton<RateLimiterService>();
 builder.Services.AddSingleton<NonceService>();
@@ -23,6 +36,8 @@ var app = builder.Build();
 // Force eager initialisation so startup errors are visible immediately.
 app.Services.GetRequiredService<SecurityConfig>();
 app.Services.GetRequiredService<BlacklistService>();
+
+app.UseCors();
 
 VerifyEndpoint.Map(app);
 AlertEndpoint.Map(app);

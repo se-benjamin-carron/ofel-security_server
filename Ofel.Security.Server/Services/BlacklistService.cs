@@ -18,10 +18,10 @@ public class BlacklistService
 
     public bool IsBlacklisted(string machineId) => _cache.ContainsKey(machineId);
 
-    public void Add(string machineId, string reason)
+    public bool Add(string machineId, string reason)
     {
         var addedDate = DateTime.UtcNow.ToString("yyyy-MM-dd");
-        if (!_cache.TryAdd(machineId, (reason, addedDate))) return;
+        if (!_cache.TryAdd(machineId, (reason, addedDate))) return false;
 
         try
         {
@@ -38,6 +38,8 @@ public class BlacklistService
         {
             Console.WriteLine($"[Blacklist] Failed to persist {machineId}: {ex.Message}");
         }
+
+        return true;
     }
 
     public bool Remove(string machineId)
@@ -56,6 +58,8 @@ public class BlacklistService
 
         return true;
     }
+
+    public int Count => _cache.Count;
 
     public IEnumerable<object> GetAll() =>
         _cache.Select(kv => (object)new BlacklistEntry(kv.Key, kv.Value.AddedDate, kv.Value.Reason));
