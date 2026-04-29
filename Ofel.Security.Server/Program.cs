@@ -15,6 +15,7 @@ builder.Services.AddSingleton<SecurityConfig>();
 builder.Services.AddSingleton<RateLimiterService>();
 builder.Services.AddSingleton<NonceService>();
 builder.Services.AddSingleton<BlacklistService>();
+builder.Services.AddSingleton<WhitelistService>();
 builder.Services.AddSingleton<EmailAlertService>();
 
 var app = builder.Build();
@@ -25,5 +26,6 @@ app.Services.GetRequiredService<BlacklistService>();
 
 VerifyEndpoint.Map(app);
 AlertEndpoint.Map(app);
+AdminEndpoint.Map(app);
 
 app.Run();

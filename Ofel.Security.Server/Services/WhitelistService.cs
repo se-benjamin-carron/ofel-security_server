@@ -3,20 +3,20 @@ using System.Text.Json.Serialization;
 
 namespace Ofel.Security.Server.Services;
 
-public class BlacklistService
+public class WhitelistService
 {
     private readonly string _path;
     private readonly ConcurrentDictionary<string, (string Reason, string AddedDate)> _cache
         = new(StringComparer.OrdinalIgnoreCase);
 
-    public BlacklistService(SecurityConfig config)
+    public WhitelistService(SecurityConfig config)
     {
-        _path = config.BlacklistPath;
+        _path = config.WhitelistPath;
         Load();
-        Console.WriteLine($"[Blacklist] Loaded {_cache.Count} entries from {_path}");
+        Console.WriteLine($"[Whitelist] Loaded {_cache.Count} entries from {_path}");
     }
 
-    public bool IsBlacklisted(string machineId) => _cache.ContainsKey(machineId);
+    public bool IsWhitelisted(string machineId) => _cache.ContainsKey(machineId);
 
     public void Add(string machineId, string reason)
     {
@@ -27,16 +27,15 @@ public class BlacklistService
         {
             Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
 
-            // Write header on first creation.
             if (!File.Exists(_path))
                 File.WriteAllText(_path, "machine_id,added_date,reason\n");
 
             File.AppendAllText(_path, $"{machineId},{addedDate},{reason}\n");
-            Console.WriteLine($"[Blacklist] Added {machineId} ({reason})");
+            Console.WriteLine($"[Whitelist] Added {machineId} ({reason})");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[Blacklist] Failed to persist {machineId}: {ex.Message}");
+            Console.WriteLine($"[Whitelist] Failed to persist {machineId}: {ex.Message}");
         }
     }
 
@@ -47,23 +46,23 @@ public class BlacklistService
         try
         {
             Rewrite();
-            Console.WriteLine($"[Blacklist] Removed {machineId}");
+            Console.WriteLine($"[Whitelist] Removed {machineId}");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[Blacklist] Failed to rewrite after removing {machineId}: {ex.Message}");
+            Console.WriteLine($"[Whitelist] Failed to rewrite after removing {machineId}: {ex.Message}");
         }
 
         return true;
     }
 
     public IEnumerable<object> GetAll() =>
-        _cache.Select(kv => (object)new BlacklistEntry(kv.Key, kv.Value.AddedDate, kv.Value.Reason));
+        _cache.Select(kv => (object)new WhitelistEntry(kv.Key, kv.Value.AddedDate, kv.Value.Reason));
 
     private void Load()
     {
         if (!File.Exists(_path)) return;
-        foreach (var line in File.ReadAllLines(_path).Skip(1)) // skip header
+        foreach (var line in File.ReadAllLines(_path).Skip(1))
         {
             var parts = line.Split(',', 3);
             if (parts.Length < 1) continue;
@@ -83,7 +82,7 @@ public class BlacklistService
         File.WriteAllLines(_path, lines);
     }
 
-    private record BlacklistEntry(
+    private record WhitelistEntry(
         [property: JsonPropertyName("machine_id")] string MachineId,
         [property: JsonPropertyName("added_date")] string AddedDate,
         [property: JsonPropertyName("reason")]     string Reason);

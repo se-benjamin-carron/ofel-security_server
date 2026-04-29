@@ -12,8 +12,13 @@ public static class VerifyEndpoint
             SecurityConfig  config,
             RateLimiterService rateLimiter,
             NonceService    nonceService,
-            BlacklistService blacklist) =>
+            BlacklistService blacklist,
+            WhitelistService whitelist) =>
         {
+            // 0. Whitelist — bypass all checks for trusted machines.
+            if (whitelist.IsWhitelisted(req.MachineId))
+                return Results.Ok(new { authorized = true });
+
             // 1. Timestamp tolerance — prevents replay of old requests.
             long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             if (Math.Abs(nowMs - req.Timestamp) > config.TimestampToleranceMs)
