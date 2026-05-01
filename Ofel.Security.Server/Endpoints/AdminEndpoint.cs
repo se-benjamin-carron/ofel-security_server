@@ -9,7 +9,7 @@ public static class AdminEndpoint
     {
         // --- Health ---
 
-        app.MapGet("/admin/health", (HttpContext ctx, SecurityConfig config, BlacklistService blacklist, WhitelistService whitelist) =>
+        app.MapGet("/admin/health", (HttpContext ctx, SecurityConfig config, BlacklistService blacklist, WhitelistService whitelist, TrialService trial) =>
         {
             if (!IsAuthorized(ctx, config)) return Results.Unauthorized();
 
@@ -19,8 +19,9 @@ public static class AdminEndpoint
             return Results.Ok(new
             {
                 server_utc = DateTime.UtcNow.ToString("o"),
-                blacklist   = FileStats(config.BlacklistPath, blacklist.Count),
-                whitelist   = FileStats(config.WhitelistPath, whitelist.Count)
+                blacklist  = FileStats(config.BlacklistPath, blacklist.Count),
+                whitelist  = FileStats(config.WhitelistPath, whitelist.Count),
+                trial      = FileStats(config.TrialPath,     trial.Count)
             });
         }).RequireCors("AdminCors");
 
@@ -58,7 +59,7 @@ public static class AdminEndpoint
                 : Results.NotFound(new { removed = false });
         }).RequireCors("AdminCors");
 
-        // --- Whitelist ---
+        // --- Whitelist (trusted) ---
 
         app.MapGet("/admin/whitelist", (HttpContext ctx, SecurityConfig config, WhitelistService whitelist) =>
         {
@@ -90,6 +91,60 @@ public static class AdminEndpoint
             return removed
                 ? Results.Ok(new { removed = true })
                 : Results.NotFound(new { removed = false });
+        }).RequireCors("AdminCors");
+
+        // --- Trial ---
+
+        app.MapGet("/admin/trial", (HttpContext ctx, SecurityConfig config, TrialService trial) =>
+        {
+            if (!IsAuthorized(ctx, config)) return Results.Unauthorized();
+            var remoteIp = ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            Log("list-trial", null, remoteIp);
+            return Results.Ok(trial.GetAll());
+        }).RequireCors("AdminCors");
+
+        app.MapPost("/admin/trial", (HttpContext ctx, AddTrialRequest req, SecurityConfig config, TrialService trial) =>
+        {
+            if (!IsAuthorized(ctx, config)) return Results.Unauthorized();
+            var remoteIp = ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            if (!trial.Add(req.MachineId, req.Email))
+            {
+                Log("add-trial-duplicate", req.MachineId, remoteIp);
+                return Results.Conflict(new { added = false, error = "machine_id already in trial" });
+            }
+            Log("add-trial", req.MachineId, remoteIp);
+            return Results.Ok(new { added = true });
+        }).RequireCors("AdminCors");
+
+        app.MapDelete("/admin/trial/{machineId}", (HttpContext ctx, string machineId, SecurityConfig config, TrialService trial) =>
+        {
+            if (!IsAuthorized(ctx, config)) return Results.Unauthorized();
+            var remoteIp = ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            var removed = trial.Remove(machineId);
+            Log(removed ? "delete-trial" : "delete-trial-notfound", machineId, remoteIp);
+            return removed
+                ? Results.Ok(new { removed = true })
+                : Results.NotFound(new { removed = false });
+        }).RequireCors("AdminCors");
+
+        // Promote a trial user to the whitelist (trusted).
+        app.MapPost("/admin/trial/{machineId}/promote", (HttpContext ctx, string machineId, SecurityConfig config, TrialService trial, WhitelistService whitelist) =>
+        {
+            if (!IsAuthorized(ctx, config)) return Results.Unauthorized();
+            var remoteIp = ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+            if (!trial.IsInTrial(machineId))
+            {
+                Log("promote-trial-notfound", machineId, remoteIp);
+                return Results.NotFound(new { promoted = false, error = "machine_id not in trial" });
+            }
+
+            var email = trial.GetEmail(machineId) ?? "";
+            trial.Remove(machineId);
+            whitelist.Add(machineId, string.IsNullOrEmpty(email) ? "promoted_from_trial" : $"promoted_from_trial:{email}");
+
+            Log("promote-trial", machineId, remoteIp);
+            return Results.Ok(new { promoted = true });
         }).RequireCors("AdminCors");
     }
 

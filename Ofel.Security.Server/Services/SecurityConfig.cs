@@ -5,6 +5,7 @@ public class SecurityConfig
     public string PasswordHash           { get; }
     public string BlacklistPath          { get; }
     public string WhitelistPath          { get; }
+    public string TrialPath              { get; }
     public string AlertEmail             { get; }
     public string SmtpHost               { get; }
     public int    SmtpPort               { get; }
@@ -21,6 +22,7 @@ public class SecurityConfig
         PasswordHash           = Require(config, "OFEL_PASSWORD_HASH");
         BlacklistPath          = config["OFEL_BLACKLIST_PATH"]              ?? "/data/blacklist.csv";
         WhitelistPath          = config["OFEL_WHITELIST_PATH"]              ?? "/data/whitelist.csv";
+        TrialPath              = config["OFEL_TRIAL_PATH"]                  ?? "/data/trial_list.csv";
         AdminKey               = config["OFEL_ADMIN_KEY"]                   ?? "";
         AlertEmail             = config["OFEL_ALERT_EMAIL"]                 ?? "";
         SmtpHost               = config["OFEL_SMTP_HOST"]                   ?? "smtp.gmail.com";
@@ -37,6 +39,7 @@ public class SecurityConfig
         Console.WriteLine($"[SecurityConfig] Nonce window: {NonceWindowSeconds}s");
         Console.WriteLine($"[SecurityConfig] Blacklist   : {BlacklistPath}");
         Console.WriteLine($"[SecurityConfig] Whitelist   : {WhitelistPath}");
+        Console.WriteLine($"[SecurityConfig] Trial list  : {TrialPath}");
     }
 
     private static string Require(IConfiguration config, string key) =>

@@ -8,14 +8,15 @@ public static class VerifyEndpoint
     public static void Map(WebApplication app)
     {
         app.MapPost("/verify", (
-            VerifyRequest   req,
-            SecurityConfig  config,
+            VerifyRequest      req,
+            SecurityConfig     config,
             RateLimiterService rateLimiter,
-            NonceService    nonceService,
-            BlacklistService blacklist,
-            WhitelistService whitelist) =>
+            NonceService       nonceService,
+            BlacklistService   blacklist,
+            WhitelistService   whitelist,
+            TrialService       trial) =>
         {
-            // 0. Whitelist — bypass all checks for trusted machines.
+            // 0. Whitelist — trusted machines bypass all checks.
             if (whitelist.IsWhitelisted(req.MachineId))
                 return Results.Ok(new { authorized = true });
 
@@ -45,6 +46,20 @@ public static class VerifyEndpoint
             {
                 Console.WriteLine($"[Verify] Invalid hash from {req.MachineId}");
                 return Results.Ok(new { authorized = false, reason = "invalid_hash" });
+            }
+
+            // 6. Trial check — machine must be trusted (handled above) or in an active trial.
+            //    If the machine has never been seen before, enroll it in a 10-day trial.
+            if (trial.IsTrialExpired(req.MachineId))
+            {
+                Console.WriteLine($"[Trial] Expired trial for {req.MachineId}");
+                return Results.Ok(new { authorized = false, reason = "trial_expired" });
+            }
+
+            if (!trial.IsInTrial(req.MachineId))
+            {
+                trial.Add(req.MachineId, req.Email ?? "");
+                Console.WriteLine($"[Trial] Enrolled {req.MachineId} ({req.Email})");
             }
 
             return Results.Ok(new { authorized = true });
