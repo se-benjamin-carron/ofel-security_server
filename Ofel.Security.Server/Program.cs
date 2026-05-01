@@ -29,6 +29,7 @@ builder.Services.AddSingleton<RateLimiterService>();
 builder.Services.AddSingleton<NonceService>();
 builder.Services.AddSingleton<BlacklistService>();
 builder.Services.AddSingleton<WhitelistService>();
+builder.Services.AddSingleton<TrustedService>();
 builder.Services.AddSingleton<TrialService>();
 builder.Services.AddSingleton<EmailAlertService>();
 
@@ -37,6 +38,7 @@ var app = builder.Build();
 // Force eager initialisation so startup errors are visible immediately.
 app.Services.GetRequiredService<SecurityConfig>();
 app.Services.GetRequiredService<BlacklistService>();
+app.Services.GetRequiredService<TrustedService>();
 app.Services.GetRequiredService<TrialService>();
 
 app.UseCors();

@@ -9,7 +9,7 @@ public static class AdminEndpoint
     {
         // --- Health ---
 
-        app.MapGet("/admin/health", (HttpContext ctx, SecurityConfig config, BlacklistService blacklist, WhitelistService whitelist, TrialService trial) =>
+        app.MapGet("/admin/health", (HttpContext ctx, SecurityConfig config, BlacklistService blacklist, WhitelistService whitelist, TrustedService trusted, TrialService trial) =>
         {
             if (!IsAuthorized(ctx, config)) return Results.Unauthorized();
 
@@ -19,9 +19,10 @@ public static class AdminEndpoint
             return Results.Ok(new
             {
                 server_utc = DateTime.UtcNow.ToString("o"),
-                blacklist  = FileStats(config.BlacklistPath, blacklist.Count),
-                whitelist  = FileStats(config.WhitelistPath, whitelist.Count),
-                trial      = FileStats(config.TrialPath,     trial.Count)
+                blacklist  = FileStats(config.BlacklistPath,  blacklist.Count),
+                whitelist  = FileStats(config.WhitelistPath,  whitelist.Count),
+                trusted    = FileStats(config.TrustedPath,    trusted.Count),
+                trial      = FileStats(config.TrialPath,      trial.Count)
             });
         }).RequireCors("AdminCors");
 
@@ -93,6 +94,40 @@ public static class AdminEndpoint
                 : Results.NotFound(new { removed = false });
         }).RequireCors("AdminCors");
 
+        // --- Trusted (permanent access, no debugger) ---
+
+        app.MapGet("/admin/trusted", (HttpContext ctx, SecurityConfig config, TrustedService trusted) =>
+        {
+            if (!IsAuthorized(ctx, config)) return Results.Unauthorized();
+            var remoteIp = ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            Log("list-trusted", null, remoteIp);
+            return Results.Ok(trusted.GetAll());
+        }).RequireCors("AdminCors");
+
+        app.MapPost("/admin/trusted", (HttpContext ctx, AddTrustedRequest req, SecurityConfig config, TrustedService trusted) =>
+        {
+            if (!IsAuthorized(ctx, config)) return Results.Unauthorized();
+            var remoteIp = ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            if (!trusted.Add(req.MachineId, req.Email, req.Reason))
+            {
+                Log("add-trusted-duplicate", req.MachineId, remoteIp);
+                return Results.Conflict(new { added = false, error = "machine_id already trusted" });
+            }
+            Log("add-trusted", req.MachineId, remoteIp);
+            return Results.Ok(new { added = true });
+        }).RequireCors("AdminCors");
+
+        app.MapDelete("/admin/trusted/{machineId}", (HttpContext ctx, string machineId, SecurityConfig config, TrustedService trusted) =>
+        {
+            if (!IsAuthorized(ctx, config)) return Results.Unauthorized();
+            var remoteIp = ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            var removed = trusted.Remove(machineId);
+            Log(removed ? "delete-trusted" : "delete-trusted-notfound", machineId, remoteIp);
+            return removed
+                ? Results.Ok(new { removed = true })
+                : Results.NotFound(new { removed = false });
+        }).RequireCors("AdminCors");
+
         // --- Trial ---
 
         app.MapGet("/admin/trial", (HttpContext ctx, SecurityConfig config, TrialService trial) =>
@@ -127,8 +162,8 @@ public static class AdminEndpoint
                 : Results.NotFound(new { removed = false });
         }).RequireCors("AdminCors");
 
-        // Promote a trial user to the whitelist (trusted).
-        app.MapPost("/admin/trial/{machineId}/promote", (HttpContext ctx, string machineId, SecurityConfig config, TrialService trial, WhitelistService whitelist) =>
+        // Promote a trial user to trusted (permanent access, no debugger).
+        app.MapPost("/admin/trial/{machineId}/promote", (HttpContext ctx, string machineId, SecurityConfig config, TrialService trial, TrustedService trusted) =>
         {
             if (!IsAuthorized(ctx, config)) return Results.Unauthorized();
             var remoteIp = ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown";
@@ -141,7 +176,7 @@ public static class AdminEndpoint
 
             var email = trial.GetEmail(machineId) ?? "";
             trial.Remove(machineId);
-            whitelist.Add(machineId, string.IsNullOrEmpty(email) ? "promoted_from_trial" : $"promoted_from_trial:{email}");
+            trusted.Add(machineId, email, "promoted_from_trial");
 
             Log("promote-trial", machineId, remoteIp);
             return Results.Ok(new { promoted = true });

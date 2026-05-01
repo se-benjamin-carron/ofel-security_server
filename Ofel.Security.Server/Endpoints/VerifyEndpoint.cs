@@ -14,9 +14,10 @@ public static class VerifyEndpoint
             NonceService       nonceService,
             BlacklistService   blacklist,
             WhitelistService   whitelist,
+            TrustedService     trusted,
             TrialService       trial) =>
         {
-            // 0. Whitelist — trusted machines bypass all checks.
+            // 0. Whitelist — debugger-enabled machines bypass all checks.
             if (whitelist.IsWhitelisted(req.MachineId))
                 return Results.Ok(new { authorized = true });
 
@@ -48,7 +49,11 @@ public static class VerifyEndpoint
                 return Results.Ok(new { authorized = false, reason = "invalid_hash" });
             }
 
-            // 6. Trial check — machine must be trusted (handled above) or in an active trial.
+            // 6. Trusted check — permanent access, no expiry, no debugger.
+            if (trusted.IsTrusted(req.MachineId))
+                return Results.Ok(new { authorized = true });
+
+            // 7. Trial check — machine must be in an active trial.
             //    If the machine has never been seen before, enroll it in a 10-day trial.
             if (trial.IsTrialExpired(req.MachineId))
             {
