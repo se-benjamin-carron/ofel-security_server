@@ -19,7 +19,7 @@ public static class VerifyEndpoint
         {
             // 0. Whitelist — debugger-enabled machines bypass all checks.
             if (whitelist.IsWhitelisted(req.MachineId))
-                return Results.Ok(new { authorized = true });
+                return Results.Ok(new { authorized = true, mode = "whitelist" });
 
             // 1. Timestamp tolerance — prevents replay of old requests.
             long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -51,7 +51,7 @@ public static class VerifyEndpoint
 
             // 6. Trusted check — permanent access, no expiry, no debugger.
             if (trusted.IsTrusted(req.MachineId))
-                return Results.Ok(new { authorized = true });
+                return Results.Ok(new { authorized = true, mode = "trusted" });
 
             // 7. Trial check — machine must be in an active trial.
             //    If the machine has never been seen before, enroll it in a 10-day trial.
@@ -67,7 +67,7 @@ public static class VerifyEndpoint
                 Console.WriteLine($"[Trial] Enrolled {req.MachineId} ({req.Email})");
             }
 
-            return Results.Ok(new { authorized = true });
+            return Results.Ok(new { authorized = true, mode = "trial" });
         });
     }
 }
